@@ -86,6 +86,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     .analysis {
       white-space: pre-line;
     }
+    .resolution-facile {
+      background-color: #d4edda;
+      border: 1px solid #c3e6cb;
+      border-radius: 5px;
+      padding: 10px 15px;
+      margin-bottom: 10px;
+    }
+    .resolution-facile h3 {
+      color: #155724;
+      margin-top: 0;
+    }
+    .resolution-transfert {
+      background-color: #fff3cd;
+      border: 1px solid #ffeeba;
+      border-radius: 5px;
+      padding: 10px 15px;
+      margin-bottom: 10px;
+    }
+    .resolution-transfert h3 {
+      color: #856404;
+      margin-top: 0;
+    }
+    .method-steps {
+      background-color: #e2e3e5;
+      border-radius: 5px;
+      padding: 10px;
+      margin: 10px 0;
+    }
   `;
   document.head.appendChild(style);
 
@@ -161,7 +189,55 @@ async function processAudio() {
 
     // Analyser la transcription
     const analysis = await analyzeTranscription(transcription);
-    document.getElementById('analysis').textContent = analysis;
+
+    // Formatage visuel de l'analyse
+    let formattedAnalysis = analysis;
+
+    // Mise en forme des sections clés
+    const sections = {
+      'BESOIN:': '<strong>BESOIN:</strong>',
+      'DÉLAI:': '<strong>DÉLAI:</strong>',
+      'EXPERTISE:': '<strong>EXPERTISE:</strong>',
+      'PRIORITÉ:': '<strong>PRIORITÉ:</strong>',
+      'RÉSOLUTION:': '<strong>RÉSOLUTION:</strong>',
+      'MÉTHODE DE RÉSOLUTION:': '<strong>MÉTHODE DE RÉSOLUTION:</strong>',
+      'BRANCHE COMPÉTENTE:': '<strong>BRANCHE COMPÉTENTE:</strong>',
+      'JUSTIFICATION:': '<strong>JUSTIFICATION:</strong>'
+    };
+
+    Object.keys(sections).forEach(key => {
+      formattedAnalysis = formattedAnalysis.replace(key, sections[key]);
+    });
+
+    // Détection de résolution facile ou transfert
+    if (analysis.includes('RÉSOLUTION: Oui') || analysis.includes('RÉSOLUTION: oui')) {
+      // Extraction de la méthode de résolution
+      const methodMatch = analysis.match(/MÉTHODE DE RÉSOLUTION:([\s\S]*?)(?=BRANCHE COMPÉTENTE:|JUSTIFICATION:|$)/);
+      let methodContent = '';
+
+      if (methodMatch && methodMatch[1]) {
+        methodContent = `<div class="method-steps">
+          <h4>📋 Étapes à suivre:</h4>
+          ${methodMatch[1].trim()}
+        </div>`;
+      }
+
+      formattedAnalysis = `<div class="resolution-facile">
+        <h3>✅ RÉSOLUTION FACILE</h3>
+        ${formattedAnalysis.replace(/MÉTHODE DE RÉSOLUTION:([\s\S]*?)(?=BRANCHE COMPÉTENTE:|JUSTIFICATION:|$)/, `<strong>MÉTHODE DE RÉSOLUTION:</strong>${methodContent}`)}
+      </div>`;
+    } else if (analysis.includes('BRANCHE COMPÉTENTE:')) {
+      // Extraction de la branche compétente
+      const brancheMatch = analysis.match(/BRANCHE COMPÉTENTE:([^\n]+)/);
+      const branche = brancheMatch ? brancheMatch[1].trim() : 'Indéterminée';
+
+      formattedAnalysis = `<div class="resolution-transfert">
+        <h3>🔄 TRANSFERT REQUIS: ${branche}</h3>
+        ${formattedAnalysis}
+      </div>`;
+    }
+
+    document.getElementById('analysis').innerHTML = formattedAnalysis;
     document.getElementById('status').textContent = 'Prêt';
   } catch (error) {
     console.error('Erreur lors du traitement audio:', error);
@@ -222,7 +298,21 @@ async function analyzeTranscription(text) {
   2. DÉLAI: Une estimation du délai nécessaire pour traiter cette demande (immédiat, quelques jours, semaines)
   3. EXPERTISE: Le domaine d'expertise bancaire concerné (crédit, épargne, assurance, placement, opérations courantes, etc.)
   4. PRIORITÉ: Niveau d'urgence (faible, moyenne, élevée)
-  5. ACTIONS RECOMMANDÉES: 2-3 actions concrètes que le conseiller devrait entreprendre
+  5. RÉSOLUTION: Évaluez si le problème peut être résolu facilement et directement par le conseiller (oui/non)
+  6. MÉTHODE DE RÉSOLUTION: Si résolution facile, décrivez précisément les étapes à suivre en 2-3 points
+  7. BRANCHE COMPÉTENTE: Si résolution complexe, indiquez la branche à laquelle transférer la demande parmi:
+     - MO AV et Succession (assurance vie, décès, héritage)
+     - MO Administratif et reglementaire (conformité, documents légaux)
+     - MO débiteur et Crédit (prêts, découverts)
+     - MO Entrée en Relation (nouveaux clients, ouverture de compte)
+     - MO Flux Sepa & Internationaux (virements internationaux)
+     - MO fraude (suspicion de fraude, contestations)
+     - MO Moyen de Paiments (cartes, chèques)
+     - MO Réconciliations Bancaires (anomalies sur comptes)
+     - MO Titres (investissements, bourse)
+     - MO trasitions (changements de produits/services)
+     - MO Vie du compte (opérations courantes)
+  8. JUSTIFICATION: Expliquez en 1-2 phrases pourquoi ce cas devrait être traité par cette branche spécifique
 
   Demande du client: "${text}"`;
 
